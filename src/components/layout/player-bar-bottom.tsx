@@ -234,7 +234,7 @@ export function PlayerBarBottom() {
         {/* RIGHT wing: secondary actions, justified to the right edge. */}
         <div className="flex flex-1 items-center justify-end gap-0.5">
           {track ? <LikeDislikeButtons videoId={track.videoId} track={track} /> : null}
-          <LyricsPopover state={lyricsState} />
+          <LyricsPopover state={lyricsState} videoId={track?.videoId} />
           <QueuePopover />
           <SpeedControl />
           <VolumeControl direction="vertical" />
@@ -272,8 +272,10 @@ export function PlayerBarBottom() {
 
 function LyricsPopover({
   state,
+  videoId,
 }: {
   state: ReturnType<typeof useLyricsView>;
+  videoId?: string;
 }) {
   if (!state.hasTrack) {
     return (
@@ -301,6 +303,7 @@ function LyricsPopover({
         className="flex h-[28rem] w-[24rem] flex-col p-0"
       >
         <PlayerMediaPanel
+          videoId={videoId}
           lyricsState={state}
           trailing={<LyricsSourceButton state={state} />}
           headerClassName="border-b border-hairline px-2 py-1"
