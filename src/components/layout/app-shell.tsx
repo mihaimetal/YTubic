@@ -190,16 +190,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   useEffect(() => {
     let cancelled = false;
-    let dispose: (() => void) | undefined;
-    void listen<{ id: string }>("nav:artist", (e) => {
-      void navigate({ to: "/artist/$id", params: { id: e.payload.id } });
-    }).then((un) => {
-      if (cancelled) un();
-      else dispose = un;
-    });
+    const disposers: (() => void)[] = [];
+    const watch = (
+      event: "nav:artist" | "nav:album",
+      to: "/artist/$id" | "/album/$id",
+    ) => {
+      void listen<{ id: string }>(event, (e) => {
+        void navigate({ to, params: { id: e.payload.id } });
+      }).then((un) => {
+        if (cancelled) un();
+        else disposers.push(un);
+      });
+    };
+    watch("nav:artist", "/artist/$id");
+    watch("nav:album", "/album/$id");
     return () => {
       cancelled = true;
-      dispose?.();
+      for (const un of disposers) un();
     };
   }, [navigate]);
 

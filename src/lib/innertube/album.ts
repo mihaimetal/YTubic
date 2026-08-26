@@ -77,7 +77,15 @@ export async function fetchAlbum(id: string): Promise<AlbumPage> {
     const mapped = mapResponsiveListItem(row);
     if (mapped && mapped.kind === "song" && !seenIds.has(mapped.id)) {
       seenIds.add(mapped.id);
-      tracks.push(mapped);
+      // Album-page rows rarely carry their own album browse link (the
+      // user is already on the album), so stamp the page id/title onto
+      // each track. That lets "Go to album" and Last.fm scrobbles work
+      // after the user queues from this page.
+      tracks.push({
+        ...mapped,
+        album: mapped.album ?? title,
+        albumId: mapped.albumId ?? id,
+      });
     }
   }
 

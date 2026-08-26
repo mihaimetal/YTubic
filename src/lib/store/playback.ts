@@ -15,6 +15,8 @@ export type QueueTrack = {
   subtitle?: string;
   artists?: { id?: string; name: string }[];
   album?: string;
+  /** Browse id for the album this track belongs to (e.g. "MPREb_…"). */
+  albumId?: string;
   thumbnails: Thumbnail[];
   /** Original duration from browse responses, may be undefined until /player resolves. */
   duration?: number;
@@ -123,6 +125,7 @@ function shelfItemToTrack(item: ShelfItem | QueueTrack): QueueTrack | null {
     subtitle: item.subtitle,
     artists: item.artists,
     album: item.album,
+    albumId: item.albumId,
     thumbnails: item.thumbnails,
     duration: item.duration,
   };

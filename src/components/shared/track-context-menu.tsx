@@ -248,6 +248,7 @@ export function TrackMenuItems({
   primitives,
   removal,
   onGoToArtist,
+  onGoToAlbum,
 }: {
   item: ShelfItem;
   context?: TrackContext;
@@ -262,6 +263,8 @@ export function TrackMenuItems({
    * forward to `useNavigate()`.
    */
   onGoToArtist?: (artistId: string) => void;
+  /** Same cross-window split as `onGoToArtist`, for `/album/$id`. */
+  onGoToAlbum?: (albumId: string) => void;
 }) {
   const store = usePlaybackStore.getState;
   const { Item, Separator, Sub, SubTrigger, SubContent } = primitives;
@@ -278,7 +281,7 @@ export function TrackMenuItems({
   } = controller;
 
   const artist = item.artists?.find((a) => !!a.id);
-  const albumBrowseId = undefined;
+  const albumBrowseId = item.albumId;
 
   return (
     <>
@@ -384,16 +387,8 @@ export function TrackMenuItems({
           Go to artist
         </Item>
       )}
-      {albumBrowseId && (
-        <Item
-          onSelect={() => {
-            // Album navigation isn't wired yet — `albumBrowseId` is
-            // currently always undefined so this branch never runs.
-            // Left as a placeholder for when album browse IDs start
-            // flowing through.
-            void albumBrowseId;
-          }}
-        >
+      {albumBrowseId && onGoToAlbum && (
+        <Item onSelect={() => onGoToAlbum(albumBrowseId)}>
           <DiscAlbumIcon />
           Go to album
         </Item>
@@ -448,6 +443,9 @@ export function TrackContextMenu({ item, children, context, removal }: Props) {
             removal={removal}
             onGoToArtist={(id) =>
               navigate({ to: "/artist/$id", params: { id } })
+            }
+            onGoToAlbum={(id) =>
+              navigate({ to: "/album/$id", params: { id } })
             }
           />
         </ContextMenuContent>
@@ -511,6 +509,9 @@ export function TrackMoreMenu({
             removal={removal}
             onGoToArtist={(id) =>
               navigate({ to: "/artist/$id", params: { id } })
+            }
+            onGoToAlbum={(id) =>
+              navigate({ to: "/album/$id", params: { id } })
             }
           />
         </DropdownMenuContent>
