@@ -53,18 +53,10 @@ const WEB_REMIX_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /**
- * How long we wait for WEB_REMIX *before* handing the audio element a
- * `/stream` URL. Rust also polls `pre_resolved` after the GET so a late
- * register still starts the download. Don't block 20s here — that made
- * long tracks look dead.
- */
-// Warm path is usually <2s; give cold youtubei a bit more room since
-// there is no secondary resolver.
-const WEB_RESOLVE_HEADSTART_MS = 6_000;
-
-/**
- * Absolute ceiling for a background WEB_REMIX attempt after the stream
- * URL is already live. Past this we stop trying to register.
+ * Ceiling for a background WEB_REMIX resolve. Rust polls `pre_resolved`
+ * after GET /stream, so we never wait on this before handing the audio
+ * element a src — first playable bytes should land as soon as the URL
+ * is registered and the download has ~32 KB.
  */
 const WEB_RESOLVE_BACKGROUND_MS = 18_000;
 
@@ -101,16 +93,11 @@ async function registerWebRemixSource(
 }
 
 /**
- * Resolve + register WEB_REMIX without blocking the caller longer than
- * `headstartMs`. On miss/timeout the promise settles with false and the
- * background attempt may still register while Rust polls.
+ * Resolve + register WEB_REMIX in the background. Failures stay in the
+ * stream log; the /stream GET independently polls until a URL lands.
  */
-function kickWebRemixResolve(
-  videoId: string,
-  headstartMs: number,
-): Promise<boolean> {
-  let settled = false;
-  const work = (async (): Promise<boolean> => {
+function kickWebRemixResolve(videoId: string): void {
+  void (async () => {
     try {
       const resolved = await Promise.race([
         resolveWebRemixStream(videoId),
@@ -119,16 +106,13 @@ function kickWebRemixResolve(
         ),
       ]);
       if (!resolved?.url) {
-        if (!settled) {
-          console.info("[stream] WEB_REMIX resolve miss for", videoId);
-          void invoke("log_stream_line", {
-            line: `[stream] ${videoId}: web_remix miss`,
-          }).catch(() => {});
-        }
-        return false;
+        console.info("[stream] WEB_REMIX resolve miss for", videoId);
+        void invoke("log_stream_line", {
+          line: `[stream] ${videoId}: web_remix miss`,
+        }).catch(() => {});
+        return;
       }
       await registerWebRemixSource(videoId, resolved);
-      return true;
     } catch (e) {
       console.info("[stream] WEB_REMIX resolve error:", e);
       void invoke("log_stream_line", {
@@ -136,63 +120,21 @@ function kickWebRemixResolve(
           e instanceof Error ? e.message : String(e)
         }`,
       }).catch(() => {});
-      return false;
     }
   })();
-
-  return Promise.race([
-    work.then((ok) => {
-      settled = true;
-      return ok;
-    }),
-    new Promise<boolean>((r) =>
-      setTimeout(() => {
-        if (!settled) {
-          console.info(
-            "[stream] WEB_REMIX still running; starting /stream for",
-            videoId,
-          );
-        }
-        r(false);
-      }, headstartMs),
-    ),
-  ]);
 }
 
 /**
  * Build the local progressive stream URL for a videoId.
  *
- * Kicks WEB_REMIX resolve (youtubei.js + cookies) with a short head-start,
- * then returns `/stream/:id`. Rust polls for the registered URL and
- * downloads via Music Origin + cookies. WEB_REMIX is the only resolver.
+ * Kicks WEB_REMIX resolve (youtubei.js + cookies) and immediately
+ * returns `/stream/:id` — no wait, no next-track prefetch. Rust polls
+ * for the registered URL and downloads via Music Origin + cookies.
  */
 export async function streamUrlFor(videoId: string): Promise<string> {
-  const basePromise = getStreamBaseUrl();
-  // Fire-and-forget with head-start: await only a brief window so a warm
-  // session can still win the race, then let /stream start.
-  await kickWebRemixResolve(videoId, WEB_RESOLVE_HEADSTART_MS);
-  const base = await basePromise;
+  kickWebRemixResolve(videoId);
+  const base = await getStreamBaseUrl();
   return `${base}/stream/${encodeURIComponent(videoId)}${ephemeralSuffix()}`;
-}
-
-const prefetched = new Set<string>();
-
-/**
- * Warm the persistent cache for the next queued track. Registers a
- * WEB_REMIX URL then hits `/stream` so Rust downloads in the background.
- * No-op for Free accounts (ephemeral cache is wiped on launch).
- */
-export async function prefetchStream(videoId: string): Promise<void> {
-  if (!isPremium()) return;
-  if (prefetched.has(videoId)) return;
-  prefetched.add(videoId);
-  try {
-    const src = await streamUrlFor(videoId);
-    const res = await fetch(src);
-    if (!res.ok) prefetched.delete(videoId);
-  } catch {
-    prefetched.delete(videoId);
-  }
 }
 
 const metaWritten = new Set<string>();
@@ -234,6 +176,5 @@ export async function saveTrackMeta(
  * gone from disk but still remembered as labelled.
  */
 export function clearPrefetchMemo(): void {
-  prefetched.clear();
   metaWritten.clear();
 }
