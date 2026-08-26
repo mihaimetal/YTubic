@@ -92,6 +92,11 @@ export type PlaybackState = {
   clearQueue: () => void;
   setAutoRadio: (on: boolean) => void;
   setQueueContinuation: (token?: string) => void;
+  /** Stamp album metadata onto queued copies of a video (Go to album). */
+  patchQueueTrack: (
+    videoId: string,
+    patch: Partial<Pick<QueueTrack, "album" | "albumId">>,
+  ) => void;
 
   // Actions — transport
   toggle: () => void;
@@ -368,6 +373,21 @@ const playbackStateCreator: StateCreator<PlaybackState> = (set, get) => ({
   setAutoRadio: (on) => set({ autoRadio: on }),
 
   setQueueContinuation: (token) => set({ queueContinuation: token }),
+
+  patchQueueTrack: (videoId, patch) => {
+    set((s) => {
+      let changed = false;
+      const queue = s.queue.map((t) => {
+        if (t.videoId !== videoId) return t;
+        const albumId = patch.albumId ?? t.albumId;
+        const album = patch.album ?? t.album;
+        if (albumId === t.albumId && album === t.album) return t;
+        changed = true;
+        return { ...t, album, albumId };
+      });
+      return changed ? { queue } : s;
+    });
+  },
 
   toggle: () => {
     const { queue, playing } = get();

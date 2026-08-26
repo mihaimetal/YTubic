@@ -70,6 +70,7 @@ import {
 } from "@/lib/innertube/mutations";
 import { toggleLiked } from "@/lib/like-actions";
 import { usePlaybackStore } from "@/lib/store/playback";
+import { useTrackAlbumId } from "@/lib/use-track-album";
 import type { ShelfItem } from "@/lib/innertube/types";
 import { syncLastfmLove } from "@/lib/lastfm";
 
@@ -281,7 +282,10 @@ export function TrackMenuItems({
   } = controller;
 
   const artist = item.artists?.find((a) => !!a.id);
-  const albumBrowseId = item.albumId;
+  const albumBrowseId = useTrackAlbumId(
+    item.kind === "song" || item.kind === "video" ? item.id : undefined,
+    item.albumId,
+  );
 
   return (
     <>

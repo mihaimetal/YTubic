@@ -25,6 +25,7 @@ import { WhatsNewDialog } from "@/components/layout/whats-new-dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAudioEngine } from "@/lib/audio-engine";
+import { useResolveCurrentAlbum } from "@/lib/use-track-album";
 import { useCacheAutoClean } from "@/lib/cache-cleanup";
 import { usePlaybackNotifications } from "@/lib/playback-notifications";
 import { useLastfmScrobbler } from "@/lib/lastfm-scrobbler";
@@ -91,6 +92,7 @@ function useGlobalShortcuts() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   useAudioEngine();
+  useResolveCurrentAlbum();
   useYtdlpSetup();
   useUpdateStartupCheck();
   useWhatsNewOnUpdate();
