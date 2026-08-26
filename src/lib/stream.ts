@@ -175,6 +175,26 @@ export async function streamUrlFor(videoId: string): Promise<string> {
   return `${base}/stream/${encodeURIComponent(videoId)}${ephemeralSuffix()}`;
 }
 
+const prefetched = new Set<string>();
+
+/**
+ * Warm the persistent cache for the next queued track. Registers a
+ * WEB_REMIX URL then hits `/stream` so Rust downloads in the background.
+ * No-op for Free accounts (ephemeral cache is wiped on launch).
+ */
+export async function prefetchStream(videoId: string): Promise<void> {
+  if (!isPremium()) return;
+  if (prefetched.has(videoId)) return;
+  prefetched.add(videoId);
+  try {
+    const src = await streamUrlFor(videoId);
+    const res = await fetch(src);
+    if (!res.ok) prefetched.delete(videoId);
+  } catch {
+    prefetched.delete(videoId);
+  }
+}
+
 const metaWritten = new Set<string>();
 
 /**
@@ -214,5 +234,6 @@ export async function saveTrackMeta(
  * gone from disk but still remembered as labelled.
  */
 export function clearPrefetchMemo(): void {
+  prefetched.clear();
   metaWritten.clear();
 }
