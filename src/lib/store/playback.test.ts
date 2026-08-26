@@ -185,4 +185,17 @@ describe("playback shelfItemToTrack albumId", () => {
       albumId: "MPREb_x",
     });
   });
+
+  it("patchQueueTrack stamps albumId onto queued copies", () => {
+    setup({ queue: [track("vid")], index: 0 });
+    usePlaybackStore.getState().patchQueueTrack("vid", {
+      albumId: "MPREb_later",
+      album: "Late Album",
+    });
+    expect(usePlaybackStore.getState().queue[0]).toMatchObject({
+      videoId: "vid",
+      albumId: "MPREb_later",
+      album: "Late Album",
+    });
+  });
 });
