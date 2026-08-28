@@ -120,6 +120,14 @@ pnpm tauri dev
 
 Frontend-only dev (no Tauri window): `pnpm dev`.
 
+Local macOS `.app` / `.dmg` (ad-hoc signed, no notarization or updater
+artifacts):
+
+```bash
+./scripts/mac-build-local.sh
+./scripts/mac-build-local.sh --open
+```
+
 ## Quality checks
 
 ```bash
