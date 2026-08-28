@@ -273,10 +273,23 @@ async function getInnertube(): Promise<{
 
     if (!evalInstalled) {
       // youtubei 17: eval(data, env) → { sig?, n? }
+      // `new Function` needs script-src 'unsafe-eval' in tauri.conf.json
+      // (production CSP). Without it, cached tracks play and new ones
+      // fail with "raw player no URL" / a CSP eval refusal.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       Platform.shim.eval = async (data: any) => {
-        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-        return new Function(data.output)();
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+          return new Function(data.output)();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/unsafe-eval|Content Security Policy/i.test(msg)) {
+            throw new Error(
+              "player decipher blocked by CSP — tauri.conf.json script-src must include 'unsafe-eval'",
+            );
+          }
+          throw e;
+        }
       };
       evalInstalled = true;
     }
